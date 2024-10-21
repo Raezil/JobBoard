@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"db"
+	"fmt"
 )
 
 type JobsServer struct {
@@ -11,48 +12,59 @@ type JobsServer struct {
 }
 
 func (s *JobsServer) CreateJob(ctx context.Context, req *CreateJobRequest) (*JobReply, error) {
-
+	currentUser, err := CurrentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	job, err := s.PrismaClient.Job.CreateOne(
+		db.Job.Title.Set(req.Title),
+		db.Job.Recruted.Link(nil),
+		db.Job.Author.Link(
+			db.User.Email.Equals(currentUser),
+		),
+	).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	description, ok := job.Description()
+	if !ok {
+		return nil, fmt.Errorf("Not found")
+	}
 	return &JobReply{
 		Id:      job.ID,
 		Title:   job.Title,
-		Content: job.Description,
+		Content: description,
 		Skills:  job.Skills,
-		Author:  job.Author, // Adjust based on your schema
+		Author:  currentUser, // Adjust based on your schema
 	}, nil
 }
 
 func (s *JobsServer) UpdateJob(ctx context.Context, req *UpdateJobRequest) (*JobReply, error) {
-
+	_, err := s.PrismaClient.Job.FindUnique(
+		db.Job.ID.Equals(req.Id),
+	).Update(
+		db.Job.ID.Set(req.Id),
+		db.Job.Title.Set(req.Title),
+		db.Job.Description.Set(req.Text),
+	).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return &JobReply{
-		Id:      job.ID,
-		Title:   job.Title,
-		Content: job.Text,
-		Skills:  job.Skills,
-		Author:  job.Author.Name, // Adjust based on your schema
+		Id:      req.Id,
+		Title:   req.Title,
+		Content: req.Text,
 	}, nil
 }
 
-func (s *JobsServer) ReadJob(ctx context.Context, req *ReadJobRequest) (*JobReply, error) {
-
-	return &JobReply{
-		Id:          job.ID,
-		Title:       job.Title,
-		Description: job.Description,
-		Skills:      job.Skills,
-		Author:      job.Author.Name, // Adjust based on your schema
-	}, nil
-}
-
-// Implement the DeleteJob RPC
 func (s *JobsServer) DeleteJob(ctx context.Context, req *DeleteJobRequest) (*DeleteJobReply, error) {
-
+	_, err := s.PrismaClient.Job.FindUnique(
+		db.Job.ID.Equals(req.JobId),
+	).Delete().Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return &DeleteJobReply{
 		Status: "Job deleted successfully.",
-	}, nil
-}
-func (s *JobsServer) Recruit(ctx context.Context, req *RecruitJobRequest) (*RecruitJobReply, error) {
-
-	return &RecruitJobReply{
-		Message: "User recruited successfully for job ID: " + req.JobId,
 	}, nil
 }
