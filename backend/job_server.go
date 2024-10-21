@@ -68,3 +68,17 @@ func (s *JobsServer) DeleteJob(ctx context.Context, req *DeleteJobRequest) (*Del
 		Status: "Job deleted successfully.",
 	}, nil
 }
+func (s *JobsServer) Recruit(ctx context.Context, req *RecruitJobRequest) (*RecruitJobReply, error) {
+	user, err := CurrentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.PrismaClient.Job.FindUnique(
+		db.Job.ID.Equals(req.JobId),
+	).Update(db.Job.Recruted.Link(
+		db.User.Email.Equals(user),
+	)).Exec(ctx)
+	return &RecruitJobReply{
+		Message: "User recruited successfully for job ID: " + req.JobId,
+	}, nil
+}
