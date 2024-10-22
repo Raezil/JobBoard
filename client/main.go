@@ -12,7 +12,12 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func listJobs(ctx context.Context, client JobClient, page string, number string) (*ListJobReply, error) {
+type Client struct {
+	JobClient  JobClient
+	AuthClient AuthClient
+}
+
+func (client *Client) listJobs(ctx context.Context, page string, number string) (*ListJobReply, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
@@ -21,7 +26,7 @@ func listJobs(ctx context.Context, client JobClient, page string, number string)
 		Number: number,
 	}
 
-	resp, err := client.ListJobs(ctx, req)
+	resp, err := client.JobClient.ListJobs(ctx, req)
 	if err != nil {
 		log.Printf("ListJobs failed: %v", err)
 		return nil, err
@@ -31,8 +36,8 @@ func listJobs(ctx context.Context, client JobClient, page string, number string)
 	return resp, nil
 }
 
-func Login(client AuthClient, email, password string) context.Context {
-	loginReply, err := client.Login(context.Background(), &LoginRequest{
+func (client *Client) Login(email, password string) context.Context {
+	loginReply, err := client.AuthClient.Login(context.Background(), &LoginRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -47,19 +52,16 @@ func Login(client AuthClient, email, password string) context.Context {
 	return ctx
 }
 
-func Update(jobClient JobClient, ctx context.Context, id string, text string) (*JobReply, error) {
-	job, err := jobClient.UpdateJob(ctx, &UpdateJobRequest{
-		Id:   id,
-		Text: text,
-	})
+func (client *Client) Update(ctx context.Context, req *UpdateJobRequest) (*JobReply, error) {
+	job, err := client.JobClient.UpdateJob(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	return job, nil
 }
 
-func Recruit(jobClient JobClient, ctx context.Context, jobId string) (*RecruitJobReply, error) {
-	jobReply, err := jobClient.Recruit(ctx, &RecruitJobRequest{
+func (client *Client) Recruit(ctx context.Context, jobId string) (*RecruitJobReply, error) {
+	jobReply, err := client.JobClient.Recruit(ctx, &RecruitJobRequest{
 		JobId: jobId,
 	})
 	if err != nil {
@@ -71,8 +73,8 @@ func Recruit(jobClient JobClient, ctx context.Context, jobId string) (*RecruitJo
 
 }
 
-func CreateJob(client JobClient, ctx context.Context, req *CreateJobRequest) (*JobReply, error) {
-	jobReply, err := client.CreateJob(ctx, req)
+func (client *Client) CreateJob(ctx context.Context, req *CreateJobRequest) (*JobReply, error) {
+	jobReply, err := client.JobClient.CreateJob(ctx, req)
 	if err != nil {
 		log.Fatalf("CreateJob failed: %v", err)
 		return nil, err
@@ -88,13 +90,15 @@ func main() {
 	}
 	defer conn.Close()
 
-	client := NewAuthClient(conn)
+	client := Client{
+		AuthClient: NewAuthClient(conn),
+		JobClient:  NewJobClient(conn),
+	}
 	if err != nil {
 		panic(err)
 	}
-	ctx := Login(client, "alic223@example.com", "password")
-	jobClient := NewJobClient(conn)
-	req := CreateJobRequest{
+	ctx := client.Login("alic223@example.com", "password")
+	jobReply, err := client.CreateJob(ctx, &CreateJobRequest{
 		Title:       "Software Engineer",
 		Description: "Hello from client",
 		Skills: []string{
@@ -104,23 +108,26 @@ func main() {
 			"golang",
 			"microservices",
 		},
-	}
-	jobReply, err := CreateJob(jobClient, ctx, &req)
+	})
 	if err != nil {
 		fmt.Errorf(err.Error())
 	}
-	jobUpdate, err := Update(jobClient, ctx, jobReply.Id, "HELLo")
+	jobUpdate, err := client.Update(ctx, &UpdateJobRequest{
+		Id:    jobReply.Id,
+		Text:  "Hello",
+		Title: "Software Engineer",
+	})
 	if err != nil {
 		log.Fatalf("GetPost failed: %v", err)
 	}
 	fmt.Println("Job Update response:", jobUpdate)
 
-	recruit, err := Recruit(jobClient, ctx, jobReply.Id)
+	recruit, err := client.Recruit(ctx, jobReply.Id)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("ReadJob response:", recruit)
-	list, err := listJobs(ctx, jobClient, "1", "1")
+	list, err := client.listJobs(ctx, "1", "100")
 	if err != nil {
 		panic(err)
 	}
