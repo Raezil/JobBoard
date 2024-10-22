@@ -4,7 +4,7 @@
 // 	protoc        v3.21.12
 // source: job.proto
 
-package backend
+package protos
 
 import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"

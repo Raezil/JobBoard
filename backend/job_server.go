@@ -4,6 +4,7 @@ import (
 	"context"
 	"db"
 	"log"
+	"strconv"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -127,4 +128,37 @@ func (s *JobsServer) Recruit(ctx context.Context, req *RecruitJobRequest) (*Recr
 	return &RecruitJobReply{
 		Message: "User recruited successfully for job ID: " + req.JobId,
 	}, nil
+}
+
+func (s *JobsServer) ListJobs(ctx context.Context, req *ListJobRequest) (*ListJobReply, error) {
+	page, err := strconv.Atoi(req.Page)
+	if err != nil {
+		return nil, err
+	}
+	number, err := strconv.Atoi(req.Number)
+	if err != nil {
+		return nil, err
+	}
+	selected, err := s.PrismaClient.Job.FindMany().Take(number).Skip(page*number).With(
+		db.Job.Author.Fetch(),
+		db.Job.Recruted.Fetch(),
+	).Exec(ctx)
+	var result []*JobReply
+	for _, job := range selected {
+		description, ok := job.Description()
+		if !ok {
+			return nil, err
+		}
+		result = append(result, &JobReply{
+			Id:      job.ID,
+			Title:   job.Title,
+			Content: description,
+			Author:  job.Author().Name,
+		})
+	}
+	reply := &ListJobReply{
+		Jobs: result,
+		Page: req.Page,
+	}
+	return reply, nil
 }

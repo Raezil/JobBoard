@@ -6,7 +6,7 @@ Package protos is a reverse proxy.
 
 It translates gRPC into RESTful JSON APIs.
 */
-package backend
+package protos
 
 import (
 	"context"
