@@ -24,6 +24,12 @@ service Job {
             get: "/v1/job/{id}"
         };
     }
+
+    rpc ListJobs (ListJobRequest) returns (ListJobReply) {
+        option (google.api.http) = {
+            get: "/v1/jobs"
+        };
+    }
     rpc DeleteJob (DeleteJobRequest) returns (DeleteJobReply){
         option (google.api.http) = {
            delete: "/v1/job/{jobId}"
@@ -70,6 +76,16 @@ message UpdateJobRequest {
 
 message ReadJobRequest {
     string id = 1;
+}
+
+message ListJobRequest {
+    string page = 1;
+    string number = 2;
+}
+
+message ListJobReply {
+    repeated JobReply jobs = 1;
+    string page = 2;
 }
 
 message JobReply {
