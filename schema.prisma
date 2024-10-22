@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  url      = "postgres://postgres:postgres@localhost:5432/JobBoard?sslmode=disable"// Update with your PostgreSQL connection string
+  url      = "postgres://postgres:postgres@localhost:5432/board?sslmode=disable"// Update with your PostgreSQL connection string
 }
 
 generator db {
@@ -17,6 +17,7 @@ model User {
   desc          String?
   recrutedJobs  Job[]     @relation("RecruiterJobs") // Named relation
   authoredJobs  Job[]     @relation("AuthorJobs")   // New relation field
+
 }
 
 model Job {

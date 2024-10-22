@@ -3,7 +3,10 @@ package backend
 import (
 	"context"
 	"db"
-	"fmt"
+	"log"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type JobsServer struct {
@@ -12,31 +15,67 @@ type JobsServer struct {
 }
 
 func (s *JobsServer) CreateJob(ctx context.Context, req *CreateJobRequest) (*JobReply, error) {
-	currentUser, err := CurrentUser(ctx)
-	if err != nil {
-		return nil, err
+	// 1. Input Validation
+	if req.Title == "" {
+		return nil, status.Error(codes.InvalidArgument, "Title is required")
 	}
-	job, err := s.PrismaClient.Job.CreateOne(
-		db.Job.Title.Set(req.Title),
-		db.Job.Recruted.Link(nil),
-		db.Job.Author.Link(
-			db.User.Email.Equals(currentUser),
-		),
+	if req.Description == "" {
+		return nil, status.Error(codes.InvalidArgument, "Description is required")
+	}
+	if len(req.Skills) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "At least one skill is required")
+	}
+
+	// 2. Retrieve Current User's Email from Context
+	currentUserEmail, err := CurrentUser(ctx)
+	if err != nil {
+		log.Printf("Failed to retrieve current user: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "Failed to authenticate user")
+	}
+
+	// 3. Fetch User by Email to Get User ID
+	user, err := s.PrismaClient.User.FindUnique(
+		db.User.Email.Equals(currentUserEmail),
 	).Exec(ctx)
 	if err != nil {
-		return nil, err
+		log.Printf("Error fetching user with email %s: %v", currentUserEmail, err)
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve user")
 	}
-	description, ok := job.Description()
-	if !ok {
-		return nil, fmt.Errorf("Not found")
+	if user == nil {
+		log.Printf("User with email %s not found", currentUserEmail)
+		return nil, status.Errorf(codes.NotFound, "User not found")
 	}
-	return &JobReply{
+
+	// 4. Create the Job with Proper Relations
+	job, err := s.PrismaClient.Job.CreateOne(
+		db.Job.Title.Set(req.Title),
+		db.Job.Recruted.Link(
+			db.User.ID.Equals(user.ID),
+		),
+		db.Job.Author.Link(
+			db.User.ID.Equals(user.ID),
+		),
+		db.Job.Description.Set(req.Description),
+		db.Job.Skills.Set(req.Skills),
+		// Optionally initialize Recruted as empty if required
+		// db.Job.Recruted.Set([]string{}), // Example: setting to an empty array
+	).Exec(ctx)
+	if err != nil {
+		log.Printf("Error creating job: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to create job")
+	}
+
+	// 5. Construct the JobReply
+	reply := &JobReply{
 		Id:      job.ID,
 		Title:   job.Title,
-		Content: description,
+		Content: req.Description, // Use job.Description from the database
 		Skills:  job.Skills,
-		Author:  currentUser, // Adjust based on your schema
-	}, nil
+		Author:  user.Email, // Adjust based on your Protobuf schema
+		// Optionally include other fields like Recruted Users
+	}
+
+	return reply, nil
 }
 
 func (s *JobsServer) UpdateJob(ctx context.Context, req *UpdateJobRequest) (*JobReply, error) {
@@ -69,14 +108,21 @@ func (s *JobsServer) DeleteJob(ctx context.Context, req *DeleteJobRequest) (*Del
 	}, nil
 }
 func (s *JobsServer) Recruit(ctx context.Context, req *RecruitJobRequest) (*RecruitJobReply, error) {
-	user, err := CurrentUser(ctx)
+	userEmail, err := CurrentUser(ctx)
 	if err != nil {
 		return nil, err
 	}
+	user, err := s.PrismaClient.User.FindUnique(
+		db.User.Email.Equals(userEmail),
+	).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	_, err = s.PrismaClient.Job.FindUnique(
 		db.Job.ID.Equals(req.JobId),
 	).Update(db.Job.Recruted.Link(
-		db.User.Email.Equals(user),
+		db.User.ID.Equals(user.ID),
 	)).Exec(ctx)
 	return &RecruitJobReply{
 		Message: "User recruited successfully for job ID: " + req.JobId,
