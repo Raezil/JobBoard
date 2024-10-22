@@ -64,6 +64,7 @@ message CreateJobRequest {
     string title = 1;
     string description = 2;
     repeated string skills = 3;
+    string hour_rate = 4;
 }
 
 message UpdateJobRequest {
@@ -71,6 +72,7 @@ message UpdateJobRequest {
     string text = 2;
     string title = 3;
     repeated string skills = 4;
+    string hour_rate = 5;
 
 }
 
@@ -94,4 +96,5 @@ message JobReply {
     string content = 3;
     string author = 4;
     repeated string skills = 5;
+    string hour_rate = 6;
 }

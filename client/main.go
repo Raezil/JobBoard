@@ -36,6 +36,17 @@ func (client *Client) listJobs(ctx context.Context, page string, number string) 
 	return resp, nil
 }
 
+func (client *Client) Register(email, password string) (*RegisterReply, error) {
+	registerReply, err := client.AuthClient.Register(context.Background(), &RegisterRequest{
+		Email:    email,
+		Password: password,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return registerReply, nil
+}
+
 func (client *Client) Login(email, password string) context.Context {
 	loginReply, err := client.AuthClient.Login(context.Background(), &LoginRequest{
 		Email:    email,
@@ -97,6 +108,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	_, err = client.Register("alic2232@example.com", "password")
+	if err != nil {
+		panic(err)
+	}
 	ctx := client.Login("alic223@example.com", "password")
 	jobReply, err := client.CreateJob(ctx, &CreateJobRequest{
 		Title:       "Software Engineer",
@@ -108,6 +123,7 @@ func main() {
 			"golang",
 			"microservices",
 		},
+		HourRate: "125.50",
 	})
 	if err != nil {
 		fmt.Errorf(err.Error())
