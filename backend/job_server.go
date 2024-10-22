@@ -154,6 +154,7 @@ func (s *JobsServer) ListJobs(ctx context.Context, req *ListJobRequest) (*ListJo
 			Title:   job.Title,
 			Content: description,
 			Author:  job.Author().Name,
+			Skills:  job.Skills,
 		})
 	}
 	reply := &ListJobReply{
