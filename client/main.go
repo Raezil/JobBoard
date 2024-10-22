@@ -1,6 +1,7 @@
 package main
 
 import (
+	"backend"
 	. "backend"
 	"context"
 	"db"
@@ -124,21 +125,9 @@ func main() {
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-
-	jobs, err := prismaClient.Job.FindUnique(db.Job.ID.Equals(jobReply.Id)).With(
-		db.Job.Recruted.Fetch(),
-		db.Job.Author.Fetch(),
-	).Exec(ctx)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(jobs.Recruted())
-	user, err := prismaClient.User.FindUnique(db.User.Email.Equals("alic2222eee@example.com")).With(
-		db.User.RecrutedJobs.Fetch(),
-		db.User.AuthoredJobs.Fetch(),
-	).Exec(ctx)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(user.RecrutedJobs())
+	jj, err := jobClient.ListJobs(ctx, &backend.ListJobRequest{
+		Page:   "0",
+		Number: "2",
+	})
+	fmt.Println(jj)
 }
