@@ -139,7 +139,7 @@ func (s *JobsServer) ListJobs(ctx context.Context, req *ListJobRequest) (*ListJo
 	if err != nil {
 		return nil, err
 	}
-	selected, err := s.PrismaClient.Job.FindMany().Take(number).Skip(page*number).With(
+	selected, err := s.PrismaClient.Job.FindMany().Take(number).Skip((page-1)*number).With(
 		db.Job.Author.Fetch(),
 		db.Job.Recruted.Fetch(),
 	).Exec(ctx)
