@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"db"
+	"fmt"
 	"log"
 	"strconv"
 
@@ -46,8 +47,11 @@ func (s *JobsServer) CreateJob(ctx context.Context, req *CreateJobRequest) (*Job
 		log.Printf("User with email %s not found", currentUserEmail)
 		return nil, status.Errorf(codes.NotFound, "User not found")
 	}
-
 	// 4. Create the Job with Proper Relations
+	val, err := strconv.ParseFloat(req.HourRate, 2)
+	if err != nil {
+		return nil, err
+	}
 	job, err := s.PrismaClient.Job.CreateOne(
 		db.Job.Title.Set(req.Title),
 		db.Job.Recruted.Link(
@@ -56,6 +60,8 @@ func (s *JobsServer) CreateJob(ctx context.Context, req *CreateJobRequest) (*Job
 		db.Job.Author.Link(
 			db.User.ID.Equals(user.ID),
 		),
+
+		db.Job.HourRate.Set(val),
 		db.Job.Description.Set(req.Description),
 		db.Job.Skills.Set(req.Skills),
 		// Optionally initialize Recruted as empty if required
@@ -65,14 +71,17 @@ func (s *JobsServer) CreateJob(ctx context.Context, req *CreateJobRequest) (*Job
 		log.Printf("Error creating job: %v", err)
 		return nil, status.Errorf(codes.Internal, "Failed to create job")
 	}
+	value := fmt.Sprintf("%f", job.HourRate)
 
 	// 5. Construct the JobReply
 	reply := &JobReply{
-		Id:      job.ID,
-		Title:   job.Title,
-		Content: req.Description, // Use job.Description from the database
-		Skills:  job.Skills,
-		Author:  user.Email, // Adjust based on your Protobuf schema
+		Id:       job.ID,
+		Title:    job.Title,
+		Content:  req.Description, // Use job.Description from the database
+		Skills:   job.Skills,
+		Author:   user.Email, // Adjust based on your Protobuf schema
+		HourRate: value,
+
 		// Optionally include other fields like Recruted Users
 	}
 
@@ -80,7 +89,7 @@ func (s *JobsServer) CreateJob(ctx context.Context, req *CreateJobRequest) (*Job
 }
 
 func (s *JobsServer) UpdateJob(ctx context.Context, req *UpdateJobRequest) (*JobReply, error) {
-	_, err := s.PrismaClient.Job.FindUnique(
+	job, err := s.PrismaClient.Job.FindUnique(
 		db.Job.ID.Equals(req.Id),
 	).Update(
 		db.Job.ID.Set(req.Id),
@@ -90,10 +99,16 @@ func (s *JobsServer) UpdateJob(ctx context.Context, req *UpdateJobRequest) (*Job
 	if err != nil {
 		return nil, err
 	}
+	description, ok := job.Description()
+	if !ok {
+		return nil, fmt.Errorf("No Description")
+	}
+	value := fmt.Sprintf("%f", job.HourRate)
 	return &JobReply{
-		Id:      req.Id,
-		Title:   req.Title,
-		Content: req.Text,
+		Id:       job.ID,
+		Title:    job.Title,
+		Content:  description,
+		HourRate: value,
 	}, nil
 }
 
@@ -149,12 +164,15 @@ func (s *JobsServer) ListJobs(ctx context.Context, req *ListJobRequest) (*ListJo
 		if !ok {
 			return nil, err
 		}
+		value := fmt.Sprintf("%f", job.HourRate)
+
 		result = append(result, &JobReply{
-			Id:      job.ID,
-			Title:   job.Title,
-			Content: description,
-			Author:  job.Author().Name,
-			Skills:  job.Skills,
+			Id:       job.ID,
+			Title:    job.Title,
+			Content:  description,
+			Author:   job.Author().Name,
+			Skills:   job.Skills,
+			HourRate: value,
 		})
 	}
 	reply := &ListJobReply{

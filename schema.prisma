@@ -31,4 +31,5 @@ model Job {
   author      User      @relation("AuthorJobs", fields: [authorId], references: [id]) // New relation field
   authorId    String    // Foreign key for author
   skills      String[]  // Native array support in PostgreSQL
+  hourRate    Float
 }
