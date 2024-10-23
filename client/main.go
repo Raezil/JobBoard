@@ -17,14 +17,9 @@ type Client struct {
 	AuthClient AuthClient
 }
 
-func (client *Client) listJobs(ctx context.Context, page string, number string) (*ListJobReply, error) {
+func (client *Client) listJobs(ctx context.Context, req *ListJobRequest) (*ListJobReply, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
-
-	req := &ListJobRequest{
-		Page:   page,
-		Number: number,
-	}
 
 	resp, err := client.JobClient.ListJobs(ctx, req)
 	if err != nil {
@@ -108,10 +103,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	_, err = client.Register("alic2232@example.com", "password")
-	if err != nil {
-		panic(err)
-	}
 	ctx := client.Login("alic223@example.com", "password")
 	jobReply, err := client.CreateJob(ctx, &CreateJobRequest{
 		Title:       "Software Engineer",
@@ -143,7 +134,10 @@ func main() {
 		panic(err)
 	}
 	fmt.Println("ReadJob response:", recruit)
-	list, err := client.listJobs(ctx, "1", "100")
+	list, err := client.listJobs(ctx, &ListJobRequest{
+		Page:   "1",
+		Number: "5",
+	})
 	if err != nil {
 		panic(err)
 	}
