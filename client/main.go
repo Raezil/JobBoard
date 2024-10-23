@@ -103,10 +103,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	_, err = client.Register("alic2232@example.com", "password")
-	if err != nil {
-		panic(err)
-	}
 	ctx := client.Login("alic223@example.com", "password")
 	jobReply, err := client.CreateJob(ctx, &CreateJobRequest{
 		Title:       "Software Engineer",
